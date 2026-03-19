@@ -160,15 +160,17 @@ async def parsear_resultados(page, cedula: str) -> dict:
         })
 
     total_pendientes = resumen["comparendos"] + resumen["multas"]
-    valor_total      = resumen["valor_total"]
+    # Usar valor del resumen siempre que exista — es mas confiable que la tabla
+    valor_total = resumen["valor_total"]
 
-    # Si tabla vacia pero resumen dice que hay multas
-    if not multas and total_pendientes > 0:
+    if multas:
+        pendientes = [m for m in multas if "PENDIENTE" in (m.get("estado") or "").upper()]
+        tiene_multas = len(pendientes) > 0 or total_pendientes > 0
+        # Si la tabla tiene valores usar esos, sino usar el resumen
+        valor_tabla = sum(m.get("valor", 0) for m in multas)
+        valor_total = valor_tabla if valor_tabla > 0 else valor_total
+    elif total_pendientes > 0:
         tiene_multas = True
-    elif multas:
-        pendientes   = [m for m in multas if "PENDIENTE" in (m.get("estado") or "").upper()]
-        tiene_multas = len(pendientes) > 0
-        valor_total  = valor_total or sum(m.get("valor", 0) for m in pendientes)
     else:
         tiene_multas = False
 
