@@ -103,6 +103,19 @@ def validar_todo():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/validar/batch", methods=["POST"])
+def validar_batch():
+    if not check_token():
+        return jsonify({"error": "No autorizado"}), 401
+    try:
+        import asyncio
+        from batch_validator import run_batch
+        resultado = asyncio.run(run_batch())
+        return jsonify({"success": True, **resultado})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5050))
     print(f"API corriendo en http://localhost:{port}")
