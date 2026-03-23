@@ -103,17 +103,35 @@ def validar_todo():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+batch_status = {"running": False, "procesadas": 0, "errores": 0, "mensaje": ""}
+
 @app.route("/validar/batch", methods=["POST"])
 def validar_batch():
     if not check_token():
         return jsonify({"error": "No autorizado"}), 401
-    try:
-        import asyncio
-        from batch_validator import run_batch
-        resultado = asyncio.run(run_batch())
-        return jsonify({"success": True, **resultado})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    if batch_status["running"]:
+        return jsonify({"success": False, "error": "Ya hay un batch corriendo"}), 400
+    import threading, asyncio
+    from batch_validator import run_batch
+    def run():
+        batch_status["running"] = True
+        batch_status["mensaje"] = "Procesando..."
+        try:
+            resultado = asyncio.run(run_batch())
+            batch_status.update({"procesadas": resultado.get("procesadas", 0),
+                                  "errores": resultado.get("errores", 0),
+                                  "mensaje": "Completado"})
+        except Exception as e:
+            batch_status["mensaje"] = f"Error: {str(e)}"
+        finally:
+            batch_status["running"] = False
+    threading.Thread(target=run, daemon=True).start()
+    return jsonify({"success": True, "mensaje": "Batch iniciado en segundo plano. Consulta /validar/batch/status para ver el progreso."})
+
+
+@app.route("/validar/batch/status", methods=["GET"])
+def batch_status_endpoint():
+    return jsonify(batch_status)
 
 
 if __name__ == "__main__":
